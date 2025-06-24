@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <style>
+        #map { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        var map = L.map('map').setView([37.8, -96], 4);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 12,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        var csvUrl = 'https://raw.githubusercontent.com/legooz/traffic/refs/heads/main/FARS2023NationalCSV_map_info.csv';
+        var markers = L.markerClusterGroup();
+        var heatData = [];
+
+        Papa.parse(csvUrl, {
+            download: true,
+            header: true,
+            complete: function(results) {
+                results.data.forEach(row => {
+                    const cleanRow = {};
+                    Object.entries(row).forEach(([k, v]) => cleanRow[k.trim()] = v);
+                    const lat = parseFloat(row.LATITUDE);
+                    const lon = parseFloat(row.LONGITUD);
+                    const caseId = row.ST_CASE;
+                    const HARM_EV = row.HARM_EV;
+                    const WEATHER = row.WEATHER;
+                    const LGT_COND = row.LGT_COND;
+                    const MONTH = row.MONTH;
+                    const HOUR = row.HOUR;
+                    const DAY_WEEK = row.DAY_WEEK;
+                    const DAY = row.DAY;
+                    const driverDrink = row.DR_DRINK;
+                    const deaths = row.DEATHS;
+                    const vspdLim = row.VSPD_LIM;
+                    const travSp = row.TRAV_SP;
+                    const numVehicles = row.VE_FORMS;
+
+                    if (!isNaN(lat) && !isNaN(lon)) {
+
+                        const lightConditionMap = {
+                            "1": "Daylight",
+                            "2": "Dark - Not Lighted",
+                            "3": "Dark - Lighted",
+                            "4": "Dawn",
+                            "5": "Dusk",
+                            "6": "Dark - Unknown Lighting",
+                            "7": "Other",
+                            "8": "Not Reported",
+                            "9": "Reported as Unknown"
+                        };
+                        const dayOfWeekMap = {
+                            "1": "Sunday",
+                            "2": "Monday",
+                            "3": "Tuesday",
+                            "4": "Wednesday",
+                            "5": "Thursday",
+                            "6": "Friday",
+                            "7": "Saturday"
+                        };
+                        const weatherMap = {
+                            "1": "Clear",
+                            "2": "Rain",
+                            "3": "Sleet, Hail",
+                            "4": "Snow",
+                            "5": "Fog, Smog, Smoke"
+                        };
+                        const harmEvMap = {
+                            "1": "Rollover/Overturn",
+                            "2": "Fire/Explosion",
+                            "3": "Immersion or Partial Immersion",
+                            "4": "Gas Inhalation",
+                            "5": "Fell/Jumped From Vehicle",
+                            "6": "Injured in Vehicle (Non-Collision)",
+                            "7": "Other Non-Collision",
+                            "8": "Pedestrian",
+                            "9": "Pedalcyclist",
+                            "10": "Railway Vehicle",
+                            "11": "Live Animal",
+                            "12": "Motor Vehicle In-Transport",
+                            "13": "Motor Vehicle On Other Roadway",
+                            "14": "Parked Motor Vehicle",
+                            "15": "Non-Motorist on Personal Conveyance",
+                            "16": "Thrown or Falling Object",
+                            "17": "Boulder",
+                            "18": "Other Object (Not Fixed)",
+                            "19": "Building",
+                            "20": "Impact Attenuator/Crash Cushion",
+                            "21": "Bridge Pier or Support",
+                            "22": "Bridge Parapet End",
+                            "23": "Bridge Rail",
+                            "24": "Guardrail Face",
+                            "25": "Concrete Traffic Barrier",
+                            "26": "Other Traffic Barrier",
+                            "27": "Highway/Traffic Sign Post",
+                            "28": "Overhead Sign Support",
+                            "29": "Light Support",
+                            "30": "Utility Pole",
+                            "31": "Other Post or Pole",
+                            "32": "Culvert",
+                            "33": "Curb",
+                            "34": "Ditch",
+                            "35": "Embankment",
+                            "36": "Embankment – Rock, Stone, or Concrete",
+                            "37": "Embankment – Material Unknown",
+                            "38": "Fence",
+                            "39": "Wall",
+                            "40": "Fire Hydrant",
+                            "41": "Shrubbery",
+                            "42": "Tree",
+                            "43": "Other Fixed Object",
+                            "46": "Traffic Signal Support",
+                            "48": "Snow Bank",
+                            "49": "Ridden Animal or Animal-Drawn Conveyance",
+                            "50": "Bridge Overhead Structure",
+                            "52": "Guardrail End",
+                            "53": "Mailbox",
+                            "54": "Cargo or Object Set in Motion by Another Vehicle",
+                            "55": "Motor Vehicle Outside Trafficway",
+                            "57": "Cable Barrier",
+                            "58": "Ground",
+                            "59": "Traffic Sign Support",
+                            "72": "Cargo/Equipment Loss or Shift",
+                            "73": "Object Fallen From Vehicle",
+                            "74": "Road Vehicle on Rails",
+                            "91": "Unknown Object (Not Fixed)",
+                            "93": "Unknown Fixed Object",
+                            "98": "Not Reported",
+                            "99": "Unknown"
+                        };
+
+                        const LGT_COND = cleanRow.LGT_COND ?? "";
+                        const lightCondDesc = lightConditionMap[LGT_COND] ?? "Unknown";
+                        const DAY_WEEK = cleanRow.DAY_WEEK ?? "";
+                        const dayOfWeek = dayOfWeekMap[DAY_WEEK] ?? "Unknown";
+                        const WEATHER = cleanRow.WEATHER ?? "";
+                        const weatherDesc = weatherMap[WEATHER] ?? "Unknown";
+                        const HARM_EV = cleanRow.HARM_EV ?? "";
+                        const harmDesc = harmEvMap[HARM_EV] ?? "Unknown";
+
+                        const popupContent = `
+                            <strong>ST_CASE:</strong> ${caseId}<br>
+                            <strong>HARM_EV:</strong> ${harmDesc}<br>
+                            <strong>Weather:</strong> ${weatherDesc}<br>
+                            <strong>Light Condition:</strong> ${lightCondDesc}<br>
+                            <strong>Date/Time:</strong> ${MONTH}/${DAY}/2023, Hour ${HOUR}/24 <br>
+                            <strong>Day of Week:</strong> ${dayOfWeek}<br>
+                            <strong>Driver Drinking:</strong> ${driverDrink === "1" ? "Yes" : driverDrink === "0" ? "No" : "Unknown"}<br>
+                            <strong>Deaths:</strong> ${deaths}<br>
+                            <strong>Speed Limit:</strong> ${(vspdLim === "98" || vspdLim === "99") ? "Unknown" : vspdLim}<br>
+                            <strong>Travel Speed:</strong> ${(travSp === "999" || travSp === "998") ? "Unknown" : travSp}<br>
+                            <strong>Vehicles Involved:</strong> ${numVehicles}
+                        `;
+                        const marker = L.marker([lat, lon]).bindPopup(popupContent);
+                        markers.addLayer(marker);
+
+                        // Heatmap point
+                        heatData.push([lat, lon, 1]);
+                    }
+                });
+
+                // Add layers
+                map.addLayer(markers);
+                map.addLayer(L.heatLayer(heatData, {
+                    radius: 10,
+                    blur: 10,
+                    maxZoom: 10
+                }));
+
+                // Fit map to markers
+                if (markers.getLayers().length > 0) {
+                    map.fitBounds(markers.getBounds());
+                }
+            }
+        });
+    </script>
+</body>
+</html>
